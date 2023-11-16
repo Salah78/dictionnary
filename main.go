@@ -2,17 +2,17 @@ package main
 
 import (
 	"bufio"
-	"encoding/json"
+	"encoding/json" 
 	"fmt"
 	"os"
-	"strconv"
+	"strconv" 
 	"strings"
+	"sync"
 
 	"estiam/dictionary"
 )
 
 const dictionaryFilePath = "dictionary.json"
-
 
 type SaveData struct {
 	Entries map[string]struct {
@@ -20,8 +20,11 @@ type SaveData struct {
 	} `json:"entries"`
 }
 
+var d *dictionary.Dictionary
+var mu sync.Mutex
+
 func main() {
-	d := loadDictionary()
+	d = loadDictionary()
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -41,15 +44,15 @@ func main() {
 
 		switch choice {
 		case 1:
-			actionAdd(d, reader)
+			actionAdd(reader)
 		case 2:
-			actionDefine(d, reader)
+			actionDefine(reader)
 		case 3:
-			actionRemove(d, reader)
+			actionRemove(reader)
 		case 4:
-			actionList(d)
+			actionList()
 		case 5:
-			saveDictionary(d)
+			saveDictionary()
 			fmt.Println("Exiting the program.")
 			return
 		default:
@@ -72,7 +75,7 @@ func getUserChoice(reader *bufio.Reader) (int, error) {
 	return choice, nil
 }
 
-func actionAdd(d *dictionary.Dictionary, reader *bufio.Reader) {
+func actionAdd(reader *bufio.Reader) {
 	fmt.Print("Enter the word: ")
 	word, _ := reader.ReadString('\n')
 	word = strings.TrimSpace(word)
@@ -82,10 +85,11 @@ func actionAdd(d *dictionary.Dictionary, reader *bufio.Reader) {
 	definition = strings.TrimSpace(definition)
 
 	d.Add(word, definition)
+
 	fmt.Printf("Word '%s' added with definition '%s'.\n", word, definition)
 }
 
-func actionDefine(d *dictionary.Dictionary, reader *bufio.Reader) {
+func actionDefine(reader *bufio.Reader) {
 	fmt.Print("Enter the word: ")
 	word, _ := reader.ReadString('\n')
 	word = strings.TrimSpace(word)
@@ -99,16 +103,17 @@ func actionDefine(d *dictionary.Dictionary, reader *bufio.Reader) {
 	fmt.Printf("Definition of '%s': %s\n", entry.Word, entry.Definition)
 }
 
-func actionRemove(d *dictionary.Dictionary, reader *bufio.Reader) {
+func actionRemove(reader *bufio.Reader) {
 	fmt.Print("Enter the word to remove: ")
 	word, _ := reader.ReadString('\n')
 	word = strings.TrimSpace(word)
 
 	d.Remove(word)
+
 	fmt.Printf("Word '%s' removed.\n", word)
 }
 
-func actionList(d *dictionary.Dictionary) {
+func actionList() {
 	words, entries := d.List()
 	fmt.Println("Words in the dictionary:")
 	for _, word := range words {
@@ -116,7 +121,7 @@ func actionList(d *dictionary.Dictionary) {
 	}
 }
 
-func saveDictionary(d *dictionary.Dictionary) {
+func saveDictionary() {
 	saveData := SaveData{
 		Entries: make(map[string]struct {
 			Definition string `json:"definition"`
@@ -151,7 +156,6 @@ func loadDictionary() *dictionary.Dictionary {
 		return d
 	}
 
-	
 	if len(data) == 0 {
 		return d
 	}

@@ -1,16 +1,13 @@
 {
   "entries": {
-    "Poulet": {
-      "definition": "J'ai faim"
+    "terminal": {
+      "definition": "terminal"
     },
-    "Salah": {
-      "definition": "Rey Del Mundo"
+    "terminal1": {
+      "definition": "terminal10"
     },
-    "Tomate": {
-      "definition": "Fruit rouge"
-    },
-    "miaou": {
-      "definition": "miaulement du chat"
+    "terminal12": {
+      "definition": "terminal12"
     }
   }
 }
