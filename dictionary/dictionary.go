@@ -3,12 +3,12 @@ package dictionary
 import "fmt"
 
 type Entry struct {
-   Word       string
-   Definition string
+	Word       string
+	Definition string
 }
 
 func (e Entry) String() string {
-   return fmt.Sprintf("%s: %s", e.Word, e.Definition)
+	return e.Definition
 }
 
 type Dictionary struct {
