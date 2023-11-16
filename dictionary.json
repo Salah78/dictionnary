@@ -1,0 +1,16 @@
+{
+  "entries": {
+    "Poulet": {
+      "definition": "J'ai faim"
+    },
+    "Salah": {
+      "definition": "Rey Del Mundo"
+    },
+    "Tomate": {
+      "definition": "Fruit rouge"
+    },
+    "miaou": {
+      "definition": "miaulement du chat"
+    }
+  }
+}

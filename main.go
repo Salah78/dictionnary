@@ -1,49 +1,61 @@
 package main
 
 import (
-   "bufio"
-   "fmt"
-   "os"
-   "strconv"
-   "strings"
+	"bufio"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
 
-   "estiam/dictionary"
+	"estiam/dictionary"
 )
 
+const dictionaryFilePath = "dictionary.json"
+
+
+type SaveData struct {
+	Entries map[string]struct {
+		Definition string `json:"definition"`
+	} `json:"entries"`
+}
+
 func main() {
-   d := dictionary.New()
-   reader := bufio.NewReader(os.Stdin)
+	d := loadDictionary()
 
-   for {
-      fmt.Println("Choose an action:")
-      fmt.Println("1. Add")
-      fmt.Println("2. Define")
-      fmt.Println("3. Remove")
-      fmt.Println("4. List")
-      fmt.Println("5. Exit")
+	reader := bufio.NewReader(os.Stdin)
 
-      choice, err := getUserChoice(reader)
-      if err != nil {
-         fmt.Println("Error reading choice:", err)
-         continue
-      }
+	for {
+		fmt.Println("Choose an action:")
+		fmt.Println("1. Add")
+		fmt.Println("2. Define")
+		fmt.Println("3. Remove")
+		fmt.Println("4. List")
+		fmt.Println("5. Exit")
 
-      switch choice {
-      case 1:
-         actionAdd(d, reader)
-      case 2:
-         actionDefine(d, reader)
-      case 3:
-         actionRemove(d, reader)
-      case 4:
-         actionList(d)
-      case 5:
-         fmt.Println("Exiting the program.")
-         return
-      default:
-         fmt.Println("Invalid choice. Please choose a valid option.")
-      }
-   }
+		choice, err := getUserChoice(reader)
+		if err != nil {
+			fmt.Println("Error reading choice:", err)
+			continue
+		}
+
+		switch choice {
+		case 1:
+			actionAdd(d, reader)
+		case 2:
+			actionDefine(d, reader)
+		case 3:
+			actionRemove(d, reader)
+		case 4:
+			actionList(d)
+		case 5:
+			saveDictionary(d)
+			fmt.Println("Exiting the program.")
+			return
+		default:
+			fmt.Println("Invalid choice. Please choose a valid option.")
+		}
+	}
 }
 
 func getUserChoice(reader *bufio.Reader) (int, error) {
@@ -102,4 +114,58 @@ func actionList(d *dictionary.Dictionary) {
 	for _, word := range words {
 		fmt.Printf("%s: %s\n", word, entries[word])
 	}
+}
+
+func saveDictionary(d *dictionary.Dictionary) {
+	saveData := SaveData{
+		Entries: make(map[string]struct {
+			Definition string `json:"definition"`
+		}),
+	}
+
+	words, entries := d.List()
+	for _, word := range words {
+		saveData.Entries[word] = struct {
+			Definition string `json:"definition"`
+		}{Definition: entries[word].Definition}
+	}
+
+	data, err := json.MarshalIndent(saveData, "", "  ")
+	if err != nil {
+		fmt.Println("Error encoding dictionary:", err)
+		return
+	}
+
+	err = os.WriteFile(dictionaryFilePath, data, 0644)
+	if err != nil {
+		fmt.Println("Error saving dictionary to file:", err)
+	}
+}
+
+func loadDictionary() *dictionary.Dictionary {
+	d := dictionary.New()
+
+	data, err := os.ReadFile(dictionaryFilePath)
+	if err != nil {
+		fmt.Println("Error reading dictionary file:", err)
+		return d
+	}
+
+	
+	if len(data) == 0 {
+		return d
+	}
+
+	var saveData SaveData
+	err = json.Unmarshal(data, &saveData)
+	if err != nil {
+		fmt.Println("Error decoding dictionary:", err)
+		return d
+	}
+
+	for word, entry := range saveData.Entries {
+		d.Add(word, entry.Definition)
+	}
+
+	return d
 }
