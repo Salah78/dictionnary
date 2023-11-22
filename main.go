@@ -9,6 +9,7 @@ import (
 	"os"
 	"github.com/gorilla/mux"
 	"estiam/dictionary"
+	"estiam/middleware"
 )
 
 const dictionaryFilePath = "dictionary.json"
@@ -27,11 +28,13 @@ func main() {
 
 	router := mux.NewRouter()
 
+	router.Use(middleware.Logger)
+
 	router.HandleFunc("/add", addHandler).Methods("POST")
 	router.HandleFunc("/define/{word}", defineHandler).Methods("PUT")
 	router.HandleFunc("/remove/{word}", removeHandler).Methods("DELETE")
 	router.HandleFunc("/list", listHandler).Methods("GET")
-	router.HandleFunc("/exit", exitHandler).Methods("GET")
+	router.HandleFunc("/exit", exitHandler).Methods("POST")
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
@@ -85,8 +88,9 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func exitHandler(w http.ResponseWriter, r *http.Request) {
-	saveDictionary()
-	fmt.Fprintln(w, "Exiting the program.")
+    saveDictionary()
+    fmt.Fprintln(w, "Exiting the program.")
+    os.Exit(0)
 }
 
 func saveDictionary() {
