@@ -27,7 +27,6 @@ func main() {
 
 	router := mux.NewRouter()
 
-	// Define routes
 	router.HandleFunc("/add", addHandler).Methods("POST")
 	router.HandleFunc("/define/{word}", defineHandler).Methods("PUT")
 	router.HandleFunc("/remove/{word}", removeHandler).Methods("DELETE")
@@ -50,7 +49,7 @@ func defineHandler(w http.ResponseWriter, r *http.Request) {
     vars := mux.Vars(r)
     word := vars["word"]
 
-    // Récupérer la nouvelle définition du corps JSON
+
     var input map[string]string
     if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
         http.Error(w, "Erreur de décodage JSON", http.StatusBadRequest)
@@ -63,7 +62,6 @@ func defineHandler(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Mettre à jour la définition existante
     d.Add(word, newDefinition)
 
     fmt.Fprintf(w, "Définition de '%s' mise à jour avec '%s'.\n", word, newDefinition)
