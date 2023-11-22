@@ -1,14 +1,13 @@
 package main
 
 import (
-	"bufio"
-	"encoding/json" 
+	"encoding/json"
 	"fmt"
-	"os"
-	"strconv" 
-	"strings"
+	"log"
+	"net/http"
 	"sync"
-
+	"os"
+	"github.com/gorilla/mux"
 	"estiam/dictionary"
 )
 
@@ -26,99 +25,70 @@ var mu sync.Mutex
 func main() {
 	d = loadDictionary()
 
-	reader := bufio.NewReader(os.Stdin)
+	router := mux.NewRouter()
 
-	for {
-		fmt.Println("Choose an action:")
-		fmt.Println("1. Add")
-		fmt.Println("2. Define")
-		fmt.Println("3. Remove")
-		fmt.Println("4. List")
-		fmt.Println("5. Exit")
+	// Define routes
+	router.HandleFunc("/add", addHandler).Methods("POST")
+	router.HandleFunc("/define/{word}", defineHandler).Methods("PUT")
+	router.HandleFunc("/remove/{word}", removeHandler).Methods("DELETE")
+	router.HandleFunc("/list", listHandler).Methods("GET")
+	router.HandleFunc("/exit", exitHandler).Methods("GET")
 
-		choice, err := getUserChoice(reader)
-		if err != nil {
-			fmt.Println("Error reading choice:", err)
-			continue
-		}
-
-		switch choice {
-		case 1:
-			actionAdd(reader)
-		case 2:
-			actionDefine(reader)
-		case 3:
-			actionRemove(reader)
-		case 4:
-			actionList()
-		case 5:
-			saveDictionary()
-			fmt.Println("Exiting the program.")
-			return
-		default:
-			fmt.Println("Invalid choice. Please choose a valid option.")
-		}
-	}
+	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-func getUserChoice(reader *bufio.Reader) (int, error) {
-	fmt.Print("Enter your choice: ")
-	text, err := reader.ReadString('\n')
-	if err != nil {
-		return 0, err
-	}
-	text = strings.TrimSpace(text)
-	choice, err := strconv.Atoi(text)
-	if err != nil {
-		return 0, err
-	}
-	return choice, nil
-}
-
-func actionAdd(reader *bufio.Reader) {
-	fmt.Print("Enter the word: ")
-	word, _ := reader.ReadString('\n')
-	word = strings.TrimSpace(word)
-
-	fmt.Print("Enter the definition: ")
-	definition, _ := reader.ReadString('\n')
-	definition = strings.TrimSpace(definition)
+func addHandler(w http.ResponseWriter, r *http.Request) {
+	word := r.FormValue("word")
+	definition := r.FormValue("definition")
 
 	d.Add(word, definition)
 
-	fmt.Printf("Word '%s' added with definition '%s'.\n", word, definition)
+	fmt.Fprintf(w, "Word '%s' added with definition '%s'.\n", word, definition)
 }
 
-func actionDefine(reader *bufio.Reader) {
-	fmt.Print("Enter the word: ")
-	word, _ := reader.ReadString('\n')
-	word = strings.TrimSpace(word)
+func defineHandler(w http.ResponseWriter, r *http.Request) {
+    vars := mux.Vars(r)
+    word := vars["word"]
 
-	entry, err := d.Get(word)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+    // Récupérer la nouvelle définition du corps JSON
+    var input map[string]string
+    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+        http.Error(w, "Erreur de décodage JSON", http.StatusBadRequest)
+        return
+    }
 
-	fmt.Printf("Definition of '%s': %s\n", entry.Word, entry.Definition)
+    newDefinition, ok := input["definition"]
+    if !ok {
+        http.Error(w, "Champ 'definition' manquant dans le corps JSON", http.StatusBadRequest)
+        return
+    }
+
+    // Mettre à jour la définition existante
+    d.Add(word, newDefinition)
+
+    fmt.Fprintf(w, "Définition de '%s' mise à jour avec '%s'.\n", word, newDefinition)
 }
 
-func actionRemove(reader *bufio.Reader) {
-	fmt.Print("Enter the word to remove: ")
-	word, _ := reader.ReadString('\n')
-	word = strings.TrimSpace(word)
+func removeHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	word := vars["word"]
 
 	d.Remove(word)
 
-	fmt.Printf("Word '%s' removed.\n", word)
+	fmt.Fprintf(w, "Word '%s' removed.\n", word)
 }
 
-func actionList() {
+func listHandler(w http.ResponseWriter, r *http.Request) {
 	words, entries := d.List()
-	fmt.Println("Words in the dictionary:")
+	fmt.Fprintln(w, "Words in the dictionary:")
 	for _, word := range words {
-		fmt.Printf("%s: %s\n", word, entries[word])
+		fmt.Fprintf(w, "%s: %s\n", word, entries[word])
 	}
+}
+
+func exitHandler(w http.ResponseWriter, r *http.Request) {
+	saveDictionary()
+	fmt.Fprintln(w, "Exiting the program.")
 }
 
 func saveDictionary() {
@@ -149,6 +119,8 @@ func saveDictionary() {
 
 func loadDictionary() *dictionary.Dictionary {
 	d := dictionary.New()
+
+	fmt.Println("Loading dictionary from file:", dictionaryFilePath)
 
 	data, err := os.ReadFile(dictionaryFilePath)
 	if err != nil {
