@@ -28,15 +28,28 @@ func main() {
 
 	router := mux.NewRouter()
 
+	router.Use(middleware.AuthMiddleware)
+
 	router.Use(middleware.Logger)
 
+	// Définissez vos routes
 	router.HandleFunc("/add", addHandler).Methods("POST")
 	router.HandleFunc("/define/{word}", defineHandler).Methods("PUT")
 	router.HandleFunc("/remove/{word}", removeHandler).Methods("DELETE")
 	router.HandleFunc("/list", listHandler).Methods("GET")
 	router.HandleFunc("/exit", exitHandler).Methods("POST")
 
+	router.HandleFunc("/generate-token", generateTokenHandler).Methods("GET")
+
 	log.Fatal(http.ListenAndServe(":8080", router))
+}
+
+// Nouvelle fonction pour générer un token factice
+func generateTokenHandler(w http.ResponseWriter, r *http.Request) {
+    
+    token := "mon_token_secret"
+
+    fmt.Fprintf(w, "Token généré: %s\n", token)
 }
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
