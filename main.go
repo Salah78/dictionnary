@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"estiam/dictionary"
 	"estiam/middleware"
+	"errors"
 )
 
 const dictionaryFilePath = "dictionary.json"
@@ -52,35 +53,66 @@ func generateTokenHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Token généré: %s\n", token)
 }
 
+func validateWordAndDefinition(word, definition string) error {
+	// Validation du mot
+	if len(word) < 3 {
+		return errors.New("Le mot doit avoir au moins 3 caractères.")
+	}
+
+	// Validation de la définition
+	if len(definition) < 5 {
+		return errors.New("La définition doit avoir au moins 5 caractères.")
+	}
+
+	return nil
+}
+
+func writeErrorResponse(w http.ResponseWriter, message string, statusCode int) {
+	w.WriteHeader(statusCode)
+	fmt.Fprintf(w, "Erreur: %s\n", message)
+}
+
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	word := r.FormValue("word")
 	definition := r.FormValue("definition")
+
+	// Validation des données
+	if err := validateWordAndDefinition(word, definition); err != nil {
+		writeErrorResponse(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	d.Add(word, definition)
 
 	fmt.Fprintf(w, "Word '%s' added with definition '%s'.\n", word, definition)
 }
 
+
 func defineHandler(w http.ResponseWriter, r *http.Request) {
-    vars := mux.Vars(r)
-    word := vars["word"]
+	vars := mux.Vars(r)
+	word := vars["word"]
 
+	var input map[string]string
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeErrorResponse(w, "Erreur de décodage JSON", http.StatusBadRequest)
+		return
+	}
 
-    var input map[string]string
-    if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-        http.Error(w, "Erreur de décodage JSON", http.StatusBadRequest)
-        return
-    }
+	newDefinition, ok := input["definition"]
+	if !ok {
+		writeErrorResponse(w, "Champ 'definition' manquant dans le corps JSON", http.StatusBadRequest)
+		return
+	}
 
-    newDefinition, ok := input["definition"]
-    if !ok {
-        http.Error(w, "Champ 'definition' manquant dans le corps JSON", http.StatusBadRequest)
-        return
-    }
+	// Validation des données
+	if err := validateWordAndDefinition(word, newDefinition); err != nil {
+		writeErrorResponse(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-    d.Add(word, newDefinition)
+	d.Add(word, newDefinition)
 
-    fmt.Fprintf(w, "Définition de '%s' mise à jour avec '%s'.\n", word, newDefinition)
+	fmt.Fprintf(w, "Définition de '%s' mise à jour avec '%s'.\n", word, newDefinition)
 }
 
 func removeHandler(w http.ResponseWriter, r *http.Request) {
