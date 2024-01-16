@@ -85,6 +85,7 @@ func (d *Dictionary) List() ([]string, map[string]Entry) {
 	return wordList, d.entries
 }
 
+
 func (d *Dictionary) SaveToFile(filePath string) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
