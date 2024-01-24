@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sync"
 	"os"
+	"sync"
+
 	"github.com/gorilla/mux"
 	"estiam/dictionary"
 	"estiam/middleware"
@@ -30,10 +31,8 @@ func main() {
 	router := mux.NewRouter()
 
 	router.Use(middleware.AuthMiddleware)
-
 	router.Use(middleware.Logger)
 
-	// Définissez vos routes
 	router.HandleFunc("/add", addHandler).Methods("POST")
 	router.HandleFunc("/define/{word}", defineHandler).Methods("PUT")
 	router.HandleFunc("/remove/{word}", removeHandler).Methods("DELETE")
@@ -45,21 +44,16 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
 
-// Nouvelle fonction pour générer un token factice
 func generateTokenHandler(w http.ResponseWriter, r *http.Request) {
-    
-    token := "mon_token_secret"
-
-    fmt.Fprintf(w, "Token généré: %s\n", token)
+	token := "mon_token_secret"
+	fmt.Fprintf(w, "Token généré: %s\n", token)
 }
 
 func validateWordAndDefinition(word, definition string) error {
-	// Validation du mot
 	if len(word) < 3 {
 		return errors.New("Le mot doit avoir au moins 3 caractères.")
 	}
 
-	// Validation de la définition
 	if len(definition) < 5 {
 		return errors.New("La définition doit avoir au moins 5 caractères.")
 	}
@@ -76,7 +70,6 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	word := r.FormValue("word")
 	definition := r.FormValue("definition")
 
-	// Validation des données
 	if err := validateWordAndDefinition(word, definition); err != nil {
 		writeErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
@@ -86,7 +79,6 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "Word '%s' added with definition '%s'.\n", word, definition)
 }
-
 
 func defineHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -104,7 +96,6 @@ func defineHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validation des données
 	if err := validateWordAndDefinition(word, newDefinition); err != nil {
 		writeErrorResponse(w, err.Error(), http.StatusBadRequest)
 		return
@@ -133,9 +124,9 @@ func listHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func exitHandler(w http.ResponseWriter, r *http.Request) {
-    saveDictionary()
-    fmt.Fprintln(w, "Exiting the program.")
-    os.Exit(0)
+	saveDictionary()
+	fmt.Fprintln(w, "Exiting the program.")
+	os.Exit(0)
 }
 
 func saveDictionary() {
@@ -165,30 +156,26 @@ func saveDictionary() {
 }
 
 func loadDictionary() *dictionary.Dictionary {
-	d := dictionary.New()
-
-	fmt.Println("Loading dictionary from file:", dictionaryFilePath)
-
-	data, err := os.ReadFile(dictionaryFilePath)
+	d, err := dictionary.New()
 	if err != nil {
-		fmt.Println("Error reading dictionary file:", err)
+		fmt.Println("Error creating dictionary:", err)
 		return d
 	}
 
-	if len(data) == 0 {
-		return d
-	}
+	fmt.Println("Loading dictionary from Redis...")
 
-	var saveData SaveData
-	err = json.Unmarshal(data, &saveData)
-	if err != nil {
-		fmt.Println("Error decoding dictionary:", err)
-		return d
-	}
+	// Fetch entries from Redis and populate the dictionary
+	wordList, entries := d.List()
 
-	for word, entry := range saveData.Entries {
+	for _, word := range wordList {
+		entry, found := entries[word]
+		if !found {
+			fmt.Println("Error fetching entry from Redis: Entry not found for word", word)
+			continue
+		}
 		d.Add(word, entry.Definition)
 	}
 
+	fmt.Println("Dictionary loaded from Redis.")
 	return d
 }

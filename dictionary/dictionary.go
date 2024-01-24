@@ -1,15 +1,15 @@
 package dictionary
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"sync"
+	"github.com/gomodule/redigo/redis"
 )
 
+const redisAddr = "localhost:6379" 
+
 type Entry struct {
-	Word       string
-	Definition string
+	Word       string `json:"word"` 
+	Definition string `json:"definition"`
 }
 
 func (e Entry) String() string {
@@ -17,101 +17,61 @@ func (e Entry) String() string {
 }
 
 type Dictionary struct {
-	entries  map[string]Entry
-	updateCh chan dictionaryUpdate
-	mutex    sync.Mutex
+	redisConn redis.Conn
 }
 
-type dictionaryUpdate struct {
-	entry Entry
-	del   bool
-}
-
-func New() *Dictionary {
-	d := &Dictionary{
-		entries:  make(map[string]Entry),
-		updateCh: make(chan dictionaryUpdate),
+func New() (*Dictionary, error) {
+	conn, err := redis.Dial("tcp", redisAddr)
+	if err != nil {
+		return nil, err
 	}
 
-	go d.startConcurrentOperations()
-
-	return d
-}
-
-func (d *Dictionary) startConcurrentOperations() {
-	for {
-		update := <-d.updateCh
-
-		d.mutex.Lock()
-
-		if update.del {
-			delete(d.entries, update.entry.Word)
-		} else {
-			d.entries[update.entry.Word] = update.entry
-		}
-
-		d.mutex.Unlock()
-	}
+	d := &Dictionary{redisConn: conn}
+	return d, nil
 }
 
 func (d *Dictionary) Add(word string, definition string) {
-	entry := Entry{Word: word, Definition: definition}
-	d.updateCh <- dictionaryUpdate{entry: entry}
+	_, err := d.redisConn.Do("SET", word, definition)
+	if err != nil {
+		fmt.Println("Error adding entry to Redis:", err)
+	}
 }
 
 func (d *Dictionary) Get(word string) (Entry, error) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	entry, found := d.entries[word]
-	if !found {
+	definition, err := redis.String(d.redisConn.Do("GET", word))
+	if err != nil {
 		return Entry{}, fmt.Errorf("word '%s' not found", word)
 	}
-	return entry, nil
+	return Entry{Word: word, Definition: definition}, nil
 }
 
 func (d *Dictionary) Remove(word string) {
-	d.updateCh <- dictionaryUpdate{entry: Entry{Word: word}, del: true}
+	_, err := d.redisConn.Do("DEL", word)
+	if err != nil {
+		fmt.Println("Error removing entry from Redis:", err)
+	}
 }
 
 func (d *Dictionary) List() ([]string, map[string]Entry) {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	wordList := make([]string, 0, len(d.entries))
-	for word := range d.entries {
-		wordList = append(wordList, word)
+	keys, err := redis.Strings(d.redisConn.Do("KEYS", "*"))
+	if err != nil {
+		fmt.Println("Error listing entries from Redis:", err)
+		return nil, nil
 	}
-	return wordList, d.entries
+
+	entries := make(map[string]Entry)
+	for _, key := range keys {
+		definition, _ := redis.String(d.redisConn.Do("GET", key))
+		entries[key] = Entry{Word: key, Definition: definition}
+	}
+
+	return keys, entries
 }
 
-
 func (d *Dictionary) SaveToFile(filePath string) error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	data, err := json.MarshalIndent(d.entries, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(filePath, data, 0644)
+	return nil
 }
 
 func (d *Dictionary) LoadFromFile(filePath string) error {
-	d.mutex.Lock()
-	defer d.mutex.Unlock()
-
-	data, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-
-	var entries map[string]Entry
-	if err := json.Unmarshal(data, &entries); err != nil {
-		return err
-	}
-
-	d.entries = entries
 	return nil
 }

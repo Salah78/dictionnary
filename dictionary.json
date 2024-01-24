@@ -1,13 +1,10 @@
 {
   "entries": {
-    "NouveauMot": {
-      "definition": "DefinitionDuNouveauMot"
+    "mot1": {
+      "definition": "testing"
     },
-    "terminal1": {
-      "definition": "Tomatecerise"
-    },
-    "terminal12": {
-      "definition": "terminal12"
+    "mot2": {
+      "definition": "testinggggg"
     }
   }
 }
